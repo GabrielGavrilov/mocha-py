@@ -1,4 +1,6 @@
 import socket
+import time
+from threading import Thread
 import mocha_client
 
 class mocha:
@@ -21,21 +23,27 @@ class mocha:
         return callback
     
     def listen(self, port):
+        Thread(target=self.__listener_thread(port), args=(1,)).start()
+
+    def __listener_thread(self, port):
         server_socket = socket.socket()
         server_socket.bind(('', port))
         server_socket.listen()
 
         while True:
             client_connection, client_address = server_socket.accept()
-            
-            mocha_client._client(
-                client_connection, 
-                client_address, 
-                self.__get_routes, 
-                self.__views_directory, 
-                self.__static_directory
-            )
-            
-            client_connection.close()
+            Thread(target=self.__worker_thread(client_connection, client_address), args=(1,)).start()
 
         server_socket.close()
+
+
+    def __worker_thread(self, client_connection, client_address):
+        mocha_client._client(
+            client_connection, 
+            client_address, 
+            self.__get_routes, 
+            self.__views_directory, 
+            self.__static_directory
+        )
+            
+        client_connection.close()
