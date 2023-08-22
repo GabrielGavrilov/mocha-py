@@ -1,13 +1,15 @@
 import mocha_response
 import mocha_request
+import mocha_parser
 
 # TODO:
-#   [] - Parameter routes
+#   [v] - Parameter routes
 #   [v] - Request class
 #   [v] - POST routes (with payloads)
 #   [] - Cookies
 #   [] - 404 Page (with custom)
 #   [] - Custom IP for server
+#   [] - Clean up
 
 class _client:
     def __init__(self, client_connection, client_address, get_routes, post_routes, views_directory, static_directoy):
@@ -82,11 +84,23 @@ class _client:
             self.connection.sendall(data.read())
 
     def __handle_get_request(self):
+        parsedCallback = self.__get_callback_from_parsed_route(self.route, self.get_routes)
+
+        if parsedCallback is not None:
+            self.__handle_parsed_get_response(parsedCallback)
+            return
+
         if self.route in self.get_routes:
             callback = self.get_routes.get(self.route)
             self.__handle_get_response(callback)
 
     def __handle_post_request(self):
+        parsedCallback = self.__get_callback_from_parsed_route(self.route, self.post_routes)
+
+        if parsedCallback is not None:
+            self.__handle_parsed_post_response(parsedCallback)
+            return
+
         if self.route in self.post_routes:
             callback = self.post_routes.get(self.route)
             self.__handle_post_response(callback)
@@ -110,6 +124,31 @@ class _client:
         callback(request, response)
         self.__write_full_response(response)
 
+    def __handle_parsed_get_response(self, callback):
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+        template = self.__get_template_from_parsed_route(self.route, self.get_routes)
+        parser = mocha_parser.parser(template, self.route)
+
+        request.parameter = parser.parse()
+        request.header = self.header
+
+        callback(request, response)
+        self.__write_full_response(response)
+
+    def __handle_parsed_post_response(self, callback):
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+        template = self.__get_template_from_parsed_route(self.route, self.post_routes)
+        parser = mocha_parser.parser(template, self.route)
+
+        request.parameter = parser.parse()
+        request.payload = self.__get_post_payload()
+        request.header = self.header
+
+        callback(request, response)
+        self.__write_full_response(response)
+
     def __get_post_payload(self):
         payload = {}
         header_split = self.header.split("\n")
@@ -121,9 +160,24 @@ class _client:
                     payload[payload_data[0]] = payload_data[1]
 
         return payload
+    
+    def __get_template_from_parsed_route(self, requested_route, route_list):
+        for route, callback in route_list.items():
+            parser = mocha_parser.parser(route, requested_route)
+            if parser.is_parsable():
+                return route
+            
+        return None
+
+    def __get_callback_from_parsed_route(self, requested_route, route_list):
+        for route, callback in route_list.items():
+            parser = mocha_parser.parser(route, requested_route)
+            if parser.is_parsable():
+                return callback
+            
+        return None
 
     def __write_full_response(self, response):
         self.connection.sendall(response.header.encode())
         self.connection.sendall(str("\r\n").encode())
         self.connection.sendall(response.body.encode())
-        

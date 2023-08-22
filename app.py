@@ -10,6 +10,11 @@ def index(req, res):
     res.initialize_header("200 OK", "text/html")
     res.render("index.html")
 
+@app.get("/{greeting}/{name}")
+def greet(req, res):
+    res.initialize_header("200 OK", "text/html")
+    res.send(req.parameter.get("greeting") + " " + req.parameter.get("name"))
+
 @app.get("/about")
 def about(req, res):
     res.initialize_header("200 OK", "text/html")
