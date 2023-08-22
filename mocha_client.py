@@ -1,7 +1,16 @@
 import mocha_response
+import mocha_request
+
+# TODO:
+#   [] - Parameter routes
+#   [v] - Request class
+#   [v] - POST routes (with payloads)
+#   [] - Cookies
+#   [] - 404 Page (with custom)
+#   [] - Custom IP for server
 
 class _client:
-    def __init__(self, client_connection, client_address, get_routes, views_directory, static_directoy):
+    def __init__(self, client_connection, client_address, get_routes, post_routes, views_directory, static_directoy):
         self.connection = client_connection
         self.address = client_address
         self.header = self.connection.recv(1024).decode()
@@ -9,6 +18,7 @@ class _client:
         self.static_directory = static_directoy
 
         self.get_routes = get_routes
+        self.post_routes = post_routes
 
         self.route = self.__get_requested_route()
         self.method = self.__get_requested_method()
@@ -21,13 +31,6 @@ class _client:
     def __get_requested_method(self):
         return self.header.split("\r\n")[0].split()[0]
     
-    def __check_for_static_route(self):
-        if "." in self.route:
-            route_split = self.route.split(".")
-            return route_split[len(route_split)-1]
-        
-        return None
-
     def __handle_request(self):
         route_type = self.__check_for_static_route()
 
@@ -37,39 +40,90 @@ class _client:
         if self.method == "GET":
             self.__handle_get_request()
 
+        if self.method == "POST":
+            self.__handle_post_request()
+
+    def __check_for_static_route(self):
+        if "." in self.route:
+            route_split = self.route.split(".")
+            return route_split[len(route_split)-1]
+        
+        return None
+
     def __handle_static_route(self, route_type):
         if route_type == "css":
             self.__render_static_file("text/css")
+
         if route_type == "png":
             self.__render_static_image("image/png")
         
     def __render_static_file(self, content_type):
-        response = mocha_response.response(self.views_directory, self.static_directory)
-        response.initialize("200 OK", content_type)
-
+        response = mocha_response.response(self.views_directory)
+        response.initialize_header("200 OK", content_type)
         file = self.route[1:]
-        response.render_static(file)
+        file_content = ""
 
-        self.connection.sendall(str(response).encode())
+        with open(self.static_directory + file, "rb") as data:
+            file_content = data.read()
+
+        self.connection.sendall(response.header.encode())
+        self.connection.sendall(str("\r\n").encode())
+        self.connection.sendall(file_content)
 
     def __render_static_image(self, content_type):
-        response = mocha_response.response(self.views_directory, self.static_directory)
-        response.initialize("200 OK", content_type)
-        self.connection.sendall(str(response).encode())
-
+        response = mocha_response.response(self.views_directory)
+        response.initialize_header("200 OK", content_type)
         file = self.route[1:]
+
+        self.connection.sendall(response.header.encode())
+        self.connection.sendall(str("\r\n").encode())
 
         with open(self.static_directory + file, "rb") as data:
             self.connection.sendall(data.read())
 
     def __handle_get_request(self):
-        
         if self.route in self.get_routes:
             callback = self.get_routes.get(self.route)
             self.__handle_get_response(callback)
 
+    def __handle_post_request(self):
+        if self.route in self.post_routes:
+            callback = self.post_routes.get(self.route)
+            self.__handle_post_response(callback)
+
     def __handle_get_response(self, callback):
-        response = mocha_response.response(self.views_directory, self.static_directory)
-        callback(response)
-        self.connection.sendall(str(response).encode())
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+        
+        request.header = self.header
+        
+        callback(request, response)
+        self.__write_full_response(response)
+
+    def __handle_post_response(self, callback):
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+       
+        request.header = self.header
+        request.payload = self.__get_post_payload()
+
+        callback(request, response)
+        self.__write_full_response(response)
+
+    def __get_post_payload(self):
+        payload = {}
+        header_split = self.header.split("\n")
+        for data in header_split:
+            if "input" in data.lower():
+                raw_payload = data.split("&")
+                for raw in raw_payload:
+                    payload_data = raw.split("=")
+                    payload[payload_data[0]] = payload_data[1]
+
+        return payload
+
+    def __write_full_response(self, response):
+        self.connection.sendall(response.header.encode())
+        self.connection.sendall(str("\r\n").encode())
+        self.connection.sendall(response.body.encode())
         

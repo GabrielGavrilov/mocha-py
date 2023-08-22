@@ -6,6 +6,7 @@ import mocha_client
 class mocha:
     def __init__(self):
         self.__get_routes = {}
+        self.__post_routes = {}
         self.__views_directory = ""
         self.__static_directory = ""
 
@@ -18,6 +19,13 @@ class mocha:
     def get(self, path):
         def callback(cb):
             self.__get_routes[path] = cb
+            return cb
+        
+        return callback
+    
+    def post(self, path):
+        def callback(cb):
+            self.__post_routes[path] = cb
             return cb
         
         return callback
@@ -36,12 +44,12 @@ class mocha:
 
         server_socket.close()
 
-
     def __worker_thread(self, client_connection, client_address):
         mocha_client._client(
             client_connection, 
             client_address, 
             self.__get_routes, 
+            self.__post_routes,
             self.__views_directory, 
             self.__static_directory
         )
