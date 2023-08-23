@@ -3,11 +3,6 @@ import mocha_request
 import mocha_parser
 
 # TODO:
-#   [v] - Parameter routes
-#   [v] - Request class
-#   [v] - POST routes (with payloads)
-#   [] - Cookies
-#   [] - 404 Page (with custom)
 #   [] - Custom IP for server
 #   [] - Clean up
 
@@ -94,6 +89,9 @@ class _client:
             callback = self.get_routes.get(self.route)
             self.__handle_get_response(callback)
 
+        else:
+            self.__handle_route_not_found()
+
     def __handle_post_request(self):
         parsedCallback = self.__get_callback_from_parsed_route(self.route, self.post_routes)
 
@@ -104,12 +102,16 @@ class _client:
         if self.route in self.post_routes:
             callback = self.post_routes.get(self.route)
             self.__handle_post_response(callback)
+        
+        else:
+            self.__handle_route_not_found()
 
     def __handle_get_response(self, callback):
         request = mocha_request.request()
         response = mocha_response.response(self.views_directory)
         
         request.header = self.header
+        request.cookie = self.__get_cookies()
         
         callback(request, response)
         self.__write_full_response(response)
@@ -119,6 +121,7 @@ class _client:
         response = mocha_response.response(self.views_directory)
        
         request.header = self.header
+        request.cookie = self.__get_cookies()
         request.payload = self.__get_post_payload()
 
         callback(request, response)
@@ -131,6 +134,7 @@ class _client:
         parser = mocha_parser.parser(template, self.route)
 
         request.parameter = parser.parse()
+        request.cookie = self.__get_cookies()
         request.header = self.header
 
         callback(request, response)
@@ -144,9 +148,28 @@ class _client:
 
         request.parameter = parser.parse()
         request.payload = self.__get_post_payload()
+        request.cookie = self.__get_cookies()
         request.header = self.header
 
         callback(request, response)
+        self.__write_full_response(response)
+
+    def __handle_route_not_found(self):
+        for route, callback in self.get_routes.items():
+            if route == "*":
+                request = mocha_request.request()
+                response = mocha_response.response(self.views_directory)
+                
+                request.cookie = self.__get_cookies()
+                request.header = self.header
+                
+                callback(request, response)
+                self.__write_full_response(response)
+                return
+            
+        response = mocha_response.response(self.views_directory)
+        response.initialize_header("200 OK", "text/html")
+        response.send("<h1>Not Found</h1><p>The requested URL was not found on this server.</p><hr><p>Mocha Python Server</p>")
         self.__write_full_response(response)
 
     def __get_post_payload(self):
@@ -161,6 +184,18 @@ class _client:
 
         return payload
     
+    def __get_cookies(self):
+        cookies = {}
+        header_split = self.header.split("\n")
+        for data in header_split:
+            if "Cookie" in data:
+                cookie_header = data[8:]
+                cookies_split = cookie_header.split("; ")
+                for cookie in cookies_split:
+                    cookie_data = cookie.split("=")
+                    cookies[cookie_data[0]] = cookie_data[1]
+                    return cookies
+
     def __get_template_from_parsed_route(self, requested_route, route_list):
         for route, callback in route_list.items():
             parser = mocha_parser.parser(route, requested_route)

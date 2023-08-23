@@ -8,22 +8,11 @@ app.set("static", "public/")
 @app.get("/")
 def index(req, res):
     res.initialize_header("200 OK", "text/html")
-    res.render("index.html")
+    res.send(f"Cookie: {req.cookie.get('firstName')}")
 
-@app.get("/{greeting}/{name}")
-def greet(req, res):
+@app.get("*")
+def not_found(req, res):
     res.initialize_header("200 OK", "text/html")
-    res.send(req.parameter.get("greeting") + " " + req.parameter.get("name"))
+    res.send("Not found.")
 
-@app.get("/about")
-def about(req, res):
-    res.initialize_header("200 OK", "text/html")
-    res.render("about.html")
-
-@app.post("/submit")
-def submit(req, res):
-    res.initialize_header("200 OK", "text/html")
-    print(req.header)
-    res.send(f"{req.payload.get('first_name_input')} {req.payload.get('last_name_input')}")
-
-app.listen(8080)
+app.listen(3000)
