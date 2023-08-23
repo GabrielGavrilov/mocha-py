@@ -8,11 +8,12 @@ app.set("static", "public/")
 @app.get("/")
 def index(req, res):
     res.initialize_header("200 OK", "text/html")
-    res.send(f"Cookie: {req.cookie.get('firstName')}")
+    res.render("about.html")
 
-@app.get("*")
-def not_found(req, res):
-    res.initialize_header("200 OK", "text/html")
-    res.send("Not found.")
+@app.post("/todo")
+def todo(req, res):
+    res.initialize_header("200 OK", "application/json")
+    print(req.payload.get("todoInput"))
+    res.send("{\"status\": \"success\"}")
 
-app.listen(3000)
+app.listen(3000, "0.0.0.0")

@@ -2,10 +2,6 @@ import mocha_response
 import mocha_request
 import mocha_parser
 
-# TODO:
-#   [] - Custom IP for server
-#   [] - Clean up
-
 class _client:
     def __init__(self, client_connection, client_address, get_routes, post_routes, views_directory, static_directoy):
         self.connection = client_connection

@@ -29,13 +29,18 @@ class mocha:
             return cb
         
         return callback
-    
-    def listen(self, port):
-        Thread(target=self.__listener_thread(port), args=(1,)).start()
 
-    def __listener_thread(self, port):
+    def listen(self, port, host=None):
+        Thread(target=self.__listener_thread(port, host), args=(1,)).start()
+
+    def __listener_thread(self, port, host=None):
         server_socket = socket.socket()
-        server_socket.bind(('', port))
+        
+        if host:
+            server_socket.bind((host, port))
+        else:    
+            server_socket.bind(('', port))
+            
         server_socket.listen()
 
         while True:
