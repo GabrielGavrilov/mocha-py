@@ -1,3 +1,7 @@
+"""
+Used to parse routes to include route parameters
+"""
+
 class parser:
     def __init__(self, template, text):
         self.__parameter_data = {}
