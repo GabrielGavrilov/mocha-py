@@ -12,3 +12,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+
+[project.urls]
+Homepage = "https://github.com/GabrielGavrilov/mocha-py"
+Issues = "https://github.com/GabrielGavrilov/mocha-py/issues"
