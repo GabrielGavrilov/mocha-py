@@ -1,9 +1,19 @@
-import mocha_response
-import mocha_request
-import mocha_parser
+from mochapy import mocha_response
+from mochapy import mocha_request
+from mochapy import mocha_parser
 
 class _client:
-    def __init__(self, client_connection, client_address, get_routes, post_routes, views_directory, static_directoy):
+    def __init__(
+            self,
+            client_connection,
+            client_address,
+            get_routes,
+            post_routes,
+            put_routes,
+            delete_routes,
+            views_directory,
+            static_directoy
+        ):
         self.connection = client_connection
         self.address = client_address
         self.header = self.connection.recv(1024).decode()
@@ -12,6 +22,8 @@ class _client:
 
         self.get_routes = get_routes
         self.post_routes = post_routes
+        self.put_routes = put_routes
+        self.delete_routes = delete_routes
 
         self.route = self.__get_requested_route()
         self.method = self.__get_requested_method()
@@ -35,6 +47,12 @@ class _client:
 
         if self.method == "POST":
             self.__handle_post_request()
+
+        if self.method == "PUT":
+            self.__handle_put_request()
+
+        if self.method == "DELETE":
+            self.__handle_delete_request()
 
     def __check_for_static_route(self):
         if "." in self.route:
@@ -102,6 +120,34 @@ class _client:
         else:
             self.__handle_route_not_found()
 
+    def __handle_put_request(self):
+        parsed_callback = self.__get_callback_from_parsed_route(self.route, self.put_routes)
+
+        if parsed_callback is not None:
+            self.__handle_parsed_put_response(parsed_callback)
+            return
+        
+        if self.route in self.put_routes:
+            callback = self.put_routes.get(self.route)
+            self.__handle_put_response(callback)
+
+        else:
+            self.__handle_route_not_found()
+
+    def __handle_delete_request(self):
+        parsed_callback = self.__get_callback_from_parsed_route(self.route, self.delete_routes)
+
+        if parsed_callback is not None:
+            self.__handle_parsed_delete_response(parsed_callback)
+            return
+        
+        if self.route in self.delete_routes:
+            callback = self.delete_routes.get(self.route)
+            self.__handle_delete_response(callback)
+
+        else:
+            self.__handle_route_not_found()
+
     def __handle_get_response(self, callback):
         request = mocha_request.request()
         response = mocha_response.response(self.views_directory)
@@ -118,7 +164,29 @@ class _client:
        
         request.header = self.header
         request.cookie = self.__get_cookies()
-        request.payload = self.__get_post_payload()
+        request.payload = self.__get_body_payload()
+
+        callback(request, response)
+        self.__write_full_response(response)
+
+    def __handle_put_response(self, callback):
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+
+        request.header = self.header
+        request.cookie = self.__get_cookies()
+        request.payload = self.__get_body_payload()
+
+        callback(request, response)
+        self.__write_full_response(response)
+
+    def __handle_delete_response(self, callback):
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+
+        request.header = self.header
+        request.cookie = self.__get_cookies()
+        request.payload = self.__get_body_payload()
 
         callback(request, response)
         self.__write_full_response(response)
@@ -143,7 +211,35 @@ class _client:
         parser = mocha_parser.parser(template, self.route)
 
         request.parameter = parser.parse()
-        request.payload = self.__get_post_payload()
+        request.payload = self.__get_body_payload()
+        request.cookie = self.__get_cookies()
+        request.header = self.header
+
+        callback(request, response)
+        self.__write_full_response(response)
+
+    def __handle_parsed_put_response(self, callback):
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+        template = self.__get_template_from_parsed_route(self.route, self.put_routes)
+        parser = mocha_parser.parser(template, self.route)
+
+        request.parameter = parser.parse()
+        request.payload = self.__get_body_payload()
+        request.cookie = self.__get_cookies()
+        request.header = self.header
+
+        callback(request, response)
+        self.__write_full_response(response)
+
+    def __handle_parsed_delete_response(self, callback):
+        request = mocha_request.request()
+        response = mocha_response.response(self.views_directory)
+        template = self.__get_template_from_parsed_route(self.route, self.put_routes)
+        parser = mocha_parser.parser(template, self.route)
+
+        request.parameter = parser.parse()
+        request.payload = self.__get_body_payload()
         request.cookie = self.__get_cookies()
         request.header = self.header
 
@@ -168,7 +264,7 @@ class _client:
         response.send("<h1>Not Found</h1><p>The requested URL was not found on this server.</p><hr><p>Mocha Python Server</p>")
         self.__write_full_response(response)
 
-    def __get_post_payload(self):
+    def __get_body_payload(self):
         payload = {}
         header_split = self.header.split("\n")
         for data in header_split:
