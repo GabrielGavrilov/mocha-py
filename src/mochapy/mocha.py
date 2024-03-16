@@ -78,6 +78,9 @@ class mocha:
 
         return callback
 
+    def start(self, port, host=None):
+        Thread(target=self.__listener_thread(port, host), args=(1,)).start()
+
     """
     mocha server listener thread
     """

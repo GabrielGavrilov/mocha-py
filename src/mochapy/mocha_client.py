@@ -42,13 +42,19 @@ class _client:
     Returns the requested route
     """
     def __get_requested_route(self):
-        return self.header.split("\r\n")[0].split()[1]
+        try:
+            return self.header.split("\r\n")[0].split()[1]
+        except:
+            pass
     
     """
     Returns the requested method
     """
     def __get_requested_method(self):
-        return self.header.split("\r\n")[0].split()[0]
+        try:
+            return self.header.split("\r\n")[0].split()[0]
+        except:
+            pass
     
     """
     Handles the request
@@ -88,6 +94,9 @@ class _client:
     def __handle_static_route(self, route_type):
         if route_type == "css":
             self.__render_static_file("text/css")
+
+        if route_type == "js":
+            self.__render_static_file("text/javascript")
 
         if route_type == "png":
             self.__render_static_image("image/png")
