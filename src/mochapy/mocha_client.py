@@ -1,3 +1,4 @@
+import json
 from mochapy import mocha_response
 from mochapy import mocha_request
 from mochapy import mocha_parser
@@ -35,6 +36,7 @@ class _client:
 
         self.route = self.__get_requested_route() # gets the requested route from client
         self.method = self.__get_requested_method() # gets the requested route method from client
+        self.content_type = self.__get_requested_content_type() # gets the requested route's content-type
 
         self.__handle_request()
 
@@ -53,6 +55,12 @@ class _client:
     def __get_requested_method(self):
         try:
             return self.header.split("\r\n")[0].split()[0]
+        except:
+            pass
+
+    def __get_requested_content_type(self):
+        try:
+            return self.header.split("\r\n")[1].split(": ")[1]
         except:
             pass
     
@@ -238,9 +246,11 @@ class _client:
         request = mocha_request.request()
         response = mocha_response.response(self.views_directory)
        
+        self.__parse_payload(request)
+
         request.header = self.header
         request.cookie = self.__get_cookies() # sets the request cookies
-        request.payload = self.__get_body_payload() # sets the request body payload
+        #request.payload = self.__get_body_payload() # sets the request body payload
 
         callback(request, response) # execute the callback
         self.__write_full_response(response) # write the response to the client
@@ -366,19 +376,42 @@ class _client:
     """
     Returns the request body payload
     """
-    def __get_body_payload(self):
+    def __parse_payload(self, request):
+        if self.content_type == "text/plain":
+            request.payload = self.__parse_payload_to_dictionary()
+
+        elif self.content_type == "application/json":
+            request.payload = self.__parse_payload_to_json()
+
+        else:
+            request.payload = self.__parse_payload_to_dictionary()
+
+    """
+    Parses a raw payload into a dictionary
+    """
+    def __parse_payload_to_dictionary(self):
         payload = {}
-        header_split = self.header.split("\n")
-        for data in header_split:
-            # payload key must have "input" in its name for mocha-py to find it
-            if "input" in data.lower():
-                raw_payload = data.split("&")
-                for raw in raw_payload:
-                    payload_data = raw.split("=")
-                    payload[payload_data[0]] = payload_data[1]
+        raw_payload = self.header.split("\r\n\r\n")[1]
+
+        if "&" in raw_payload:
+            raw_payload_split = raw_payload.split("&")
+            for data in raw_payload_split:
+                payload_data = data.split("=")
+                payload[payload_data[0]] = payload_data[1]
+
+        else:
+            payload_data = raw_payload.split("=")
+            payload[payload_data[0]] = payload_data[1]
 
         return payload
-    
+
+    """
+    Parses a JSON payload into a dictionary
+    """
+    def __parse_payload_to_json(self):
+        raw_payload = self.header.split("\r\n\r\n")[1]
+        return json.loads(raw_payload)
+
     """
     Returns the request cookies
     """

@@ -1,2 +1,3 @@
 src/mochapy.egg-info/
 dist/
+src/mochapy/__pycache__/
